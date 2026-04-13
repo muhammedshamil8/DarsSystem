@@ -52,7 +52,7 @@ export default function TeachersManagementPage() {
       fetchTeachers();
       showToast('Teacher account created successfully');
     } else {
-      showToast(result.error, 'error');
+      showToast(result.error || 'Failed to create teacher account', 'error');
     }
     setSubmitting(false);
   };
