@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { getHijriDate } from '@/lib/date-utils';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useToast } from '@/components/ui/Toast';
 
 type Tab = 'attendance' | 'homework' | 'evaluation' | 'notes';
 
@@ -27,6 +28,7 @@ export default function SessionEngine({ batchSubjectId }: { batchSubjectId: stri
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const { showToast } = useToast();
 
   // Deletion state
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: 'note' | 'hw' } | null>(null);
@@ -45,8 +47,6 @@ export default function SessionEngine({ batchSubjectId }: { batchSubjectId: stri
 
   const initEngine = async () => {
     setLoading(true);
-    
-    // 1. Fetch Class & Students
     const { data: bsData } = await supabase.from('batch_subjects').select('batch_id').eq('id', batchSubjectId).single();
     if (!bsData) return;
     const { data: studentsData } = await supabase.from('batch_students').select('student_id, students(name)').eq('batch_id', bsData.batch_id);
@@ -54,7 +54,6 @@ export default function SessionEngine({ batchSubjectId }: { batchSubjectId: stri
     const formattedStudents = studentsData.map((s: any) => ({ id: s.student_id, name: s.students.name }));
     setStudents(formattedStudents);
 
-    // 2. Fetch Persistent Content (Homework & Notes for the class)
     const [hwdRes, ntRes] = await Promise.all([
       supabase.from('homework').select('description').eq('batch_subject_id', batchSubjectId).maybeSingle(),
       supabase.from('notes').select('*').eq('batch_subject_id', batchSubjectId).order('created_at', { ascending: false })
@@ -63,7 +62,6 @@ export default function SessionEngine({ batchSubjectId }: { batchSubjectId: stri
     setCurrentHwDesc(hwdRes.data?.description || '');
     setNotesHistory(ntRes.data || []);
 
-    // 3. Fetch Session-specific data (Attendance, HW Status, Eval)
     const { data: session } = await supabase.from('sessions').select('id').eq('batch_subject_id', batchSubjectId).eq('date', selectedDate).maybeSingle();
     if (session) {
       setSessionId(session.id);
@@ -98,21 +96,20 @@ export default function SessionEngine({ batchSubjectId }: { batchSubjectId: stri
       const sId = await getOrCreateSession();
       const payload = students.map(s => ({ session_id: sId, student_id: s.id, status: attendance[s.id] }));
       await supabase.from('attendance').upsert(payload, { onConflict: 'session_id,student_id' });
-    } catch (e: any) { alert(e.message); }
+      showToast('Attendance saved successfully');
+    } catch (e: any) { showToast(e.message, 'error'); }
     setSaving(null);
   };
 
   const saveHomework = async () => {
     setSaving('homework');
     try {
-      // 1. Save per-student status (Session-specific)
       const sId = await getOrCreateSession();
       const statusPayload = students.map(s => ({ session_id: sId, student_id: s.id, status: hwStatus[s.id] === 'Done' ? 'completed' : hwStatus[s.id] === 'Half' ? 'half' : 'not_done' }));
       await supabase.from('homework_status').upsert(statusPayload, { onConflict: 'session_id,student_id' });
-      
-      // 2. Save homework description (Class-persistent)
       await supabase.from('homework').upsert({ batch_subject_id: batchSubjectId, description: currentHwDesc }, { onConflict: 'batch_subject_id' });
-    } catch (e: any) { alert(e.message); }
+      showToast('Homework status updated');
+    } catch (e: any) { showToast(e.message, 'error'); }
     setSaving(null);
   };
 
@@ -122,7 +119,8 @@ export default function SessionEngine({ batchSubjectId }: { batchSubjectId: stri
       const sId = await getOrCreateSession();
       const payload = students.map(s => ({ session_id: sId, student_id: s.id, performance: evaluation[s.id].toLowerCase() }));
       await supabase.from('evaluations').upsert(payload, { onConflict: 'session_id,student_id' });
-    } catch (e: any) { alert(e.message); }
+      showToast('Evaluations recorded');
+    } catch (e: any) { showToast(e.message, 'error'); }
     setSaving(null);
   };
 
@@ -130,11 +128,11 @@ export default function SessionEngine({ batchSubjectId }: { batchSubjectId: stri
     if (!newNote.trim()) return;
     setSaving('notes');
     try {
-      // Save note for the CLASS, not the session
       const { data } = await supabase.from('notes').insert({ batch_subject_id: batchSubjectId, content: newNote }).select().single();
       if (data) setNotesHistory([data, ...notesHistory]);
       setNewNote('');
-    } catch (e: any) { alert(e.message); }
+      showToast('Note added to class history');
+    } catch (e: any) { showToast(e.message, 'error'); }
     setSaving(null);
   };
 
@@ -144,11 +142,13 @@ export default function SessionEngine({ batchSubjectId }: { batchSubjectId: stri
       if (deleteConfirm.type === 'note') {
         await supabase.from('notes').delete().eq('id', deleteConfirm.id);
         setNotesHistory(notesHistory.filter(n => n.id !== deleteConfirm.id));
+        showToast('Note deleted');
       } else if (deleteConfirm.type === 'hw') {
         await supabase.from('homework').delete().eq('batch_subject_id', batchSubjectId);
         setCurrentHwDesc('');
+        showToast('Homework description cleared');
       }
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) { showToast(e.message, 'error'); }
     setDeleteConfirm(null);
   };
 
@@ -189,7 +189,7 @@ export default function SessionEngine({ batchSubjectId }: { batchSubjectId: stri
                   </div>
                 </div>
               ))}
-              <button onClick={saveAttendance} disabled={!!saving} className="btn-primary" style={{ marginTop: '1rem' }}><Save size={20} /> Save Attendance</button>
+              <button onClick={saveAttendance} disabled={!!saving} className="btn-primary" style={{ marginTop: '1rem' }}>{saving === 'attendance' ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Save Attendance</button>
             </div>
           )}
 
@@ -219,7 +219,7 @@ export default function SessionEngine({ batchSubjectId }: { batchSubjectId: stri
                 </div>
                 <textarea className="input-field" rows={3} value={currentHwDesc} onChange={(e) => setCurrentHwDesc(e.target.value)} />
               </div>
-              <button onClick={saveHomework} disabled={!!saving} className="btn-primary"><Save size={20} /> Save Homework</button>
+              <button onClick={saveHomework} disabled={!!saving} className="btn-primary">{saving === 'homework' ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Save Homework</button>
             </div>
           )}
 
@@ -235,7 +235,7 @@ export default function SessionEngine({ batchSubjectId }: { batchSubjectId: stri
                   </div>
                 </div>
               ))}
-              <button onClick={saveEvaluation} disabled={!!saving} className="btn-primary" style={{ marginTop: '1rem' }}><Save size={20} /> Save Evaluation</button>
+              <button onClick={saveEvaluation} disabled={!!saving} className="btn-primary" style={{ marginTop: '1rem' }}>{saving === 'evaluation' ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Save Evaluation</button>
             </div>
           )}
 
@@ -244,7 +244,7 @@ export default function SessionEngine({ batchSubjectId }: { batchSubjectId: stri
               <div className="card glass" style={{ margin: 0 }}>
                 <label className="input-label">Class Notes History</label>
                 <textarea className="input-field" rows={3} value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Add a persistent note for this class..." />
-                <button onClick={saveNote} disabled={!!saving || !newNote.trim()} className="btn-primary" style={{ marginTop: '1rem' }}><PenTool size={20} /> Add Note</button>
+                <button onClick={saveNote} disabled={!!saving || !newNote.trim()} className="btn-primary" style={{ marginTop: '1rem' }}>{saving === 'notes' ? <Loader2 className="animate-spin" size={20} /> : <PenTool size={20} />} Add Note</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {notesHistory.map(n => (

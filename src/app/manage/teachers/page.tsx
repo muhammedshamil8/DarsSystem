@@ -8,11 +8,13 @@ import { supabase } from '@/lib/supabase';
 import { createTeacher } from '@/app/actions/teachers';
 import { RoleGuard } from '@/components/auth/RoleGuard';
 import Modal from '@/components/ui/Modal';
+import { useToast } from '@/components/ui/Toast';
 
 export default function TeachersManagementPage() {
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const { showToast } = useToast();
   
   // New teacher form
   const [name, setName] = useState('');
@@ -48,8 +50,9 @@ export default function TeachersManagementPage() {
       setEmail('');
       setPassword('');
       fetchTeachers();
+      showToast('Teacher account created successfully');
     } else {
-      alert(result.error);
+      showToast(result.error, 'error');
     }
     setSubmitting(false);
   };

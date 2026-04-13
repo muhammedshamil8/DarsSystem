@@ -7,6 +7,7 @@ import MobileNav from '@/components/layout/MobileNav';
 import { supabase } from '@/lib/supabase';
 import { RoleGuard } from '@/components/auth/RoleGuard';
 import Modal from '@/components/ui/Modal';
+import { useToast } from '@/components/ui/Toast';
 
 export default function ClassesManagementPage() {
   const [loading, setLoading] = useState(true);
@@ -15,6 +16,7 @@ export default function ClassesManagementPage() {
   const [teachers, setTeachers] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const { showToast } = useToast();
 
   // Form state
   const [selectedBatch, setSelectedBatch] = useState('');
@@ -56,9 +58,10 @@ export default function ClassesManagementPage() {
       }, { onConflict: 'batch_id,subject_id' });
 
     if (error) {
-      alert(error.message);
+      showToast(error.message, 'error');
     } else {
       setModalOpen(false);
+      showToast('Teacher successfully assigned to class');
       fetchData();
     }
     setSubmitting(false);

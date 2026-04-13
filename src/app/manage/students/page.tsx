@@ -7,6 +7,7 @@ import MobileNav from '@/components/layout/MobileNav';
 import { supabase } from '@/lib/supabase';
 import { RoleGuard } from '@/components/auth/RoleGuard';
 import Modal from '@/components/ui/Modal';
+import { useToast } from '@/components/ui/Toast';
 
 export default function StudentsManagementPage() {
   const [loading, setLoading] = useState(true);
@@ -14,6 +15,7 @@ export default function StudentsManagementPage() {
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>('all');
   const [modalOpen, setModalOpen] = useState(false);
+  const { showToast } = useToast();
   
   // New student form
   const [newName, setNewName] = useState('');
@@ -30,12 +32,9 @@ export default function StudentsManagementPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    
-    // Fetch Batches
     const { data: batchesData } = await supabase.from('batches').select('*');
     if (batchesData) setBatches(batchesData);
 
-    // Fetch Students
     let query = supabase.from('students').select('*, batch_students(batch_id, batches(name))').order('name');
     
     if (selectedBatch !== 'all') {
@@ -50,7 +49,6 @@ export default function StudentsManagementPage() {
 
     const { data: studentsData } = await query;
     if (studentsData) setStudents(studentsData);
-    
     setLoading(false);
   };
 
@@ -59,7 +57,6 @@ export default function StudentsManagementPage() {
     setSubmitting(true);
 
     try {
-      // 1. Create Student
       const { data: student, error: studentError } = await supabase
         .from('students')
         .insert({ 
@@ -74,7 +71,6 @@ export default function StudentsManagementPage() {
 
       if (studentError) throw studentError;
 
-      // 2. Assign to Batch if selected
       if (targetBatchId) {
         await supabase.from('batch_students').insert({
           student_id: student.id,
@@ -89,16 +85,17 @@ export default function StudentsManagementPage() {
       setParentMobile('');
       setPlace('');
       setTargetBatchId('');
+      showToast('Student registered successfully');
       fetchData();
     } catch (error: any) {
-      alert(error.message);
+      showToast(error.message, 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <RoleGuard>
+    <RoleGuard allowedRoles={['admin']}>
       <div className="container animate-fade-in">
         <header style={{ marginBottom: '1.5rem', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Link href="/manage" className="glass" style={{ padding: '0.5rem', borderRadius: '50%', color: 'var(--muted-foreground)', display: 'flex' }}>

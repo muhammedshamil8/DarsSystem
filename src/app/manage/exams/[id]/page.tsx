@@ -6,6 +6,7 @@ import Link from 'next/link';
 import MobileNav from '@/components/layout/MobileNav';
 import { RoleGuard } from '@/components/auth/RoleGuard';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/Toast';
 
 export default function ExamMarksPage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const params = use(paramsPromise);
@@ -14,7 +15,7 @@ export default function ExamMarksPage({ params: paramsPromise }: { params: Promi
   const [marks, setMarks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     fetchExamData();
@@ -22,8 +23,6 @@ export default function ExamMarksPage({ params: paramsPromise }: { params: Promi
 
   const fetchExamData = async () => {
     setLoading(true);
-    
-    // 1. Fetch Exam & Class info
     const { data: examData } = await supabase
       .from('exams')
       .select(`
@@ -39,8 +38,6 @@ export default function ExamMarksPage({ params: paramsPromise }: { params: Promi
     
     if (examData) {
       setExam(examData);
-      
-      // 2. Fetch students in the associated batch
       const { data: studentsData } = await supabase
         .from('batch_students')
         .select('student_id, students(name)')
@@ -53,7 +50,6 @@ export default function ExamMarksPage({ params: paramsPromise }: { params: Promi
         })));
       }
 
-      // 3. Fetch existing results
       const { data: resultsData } = await supabase
         .from('exam_results')
         .select('*')
@@ -70,7 +66,6 @@ export default function ExamMarksPage({ params: paramsPromise }: { params: Promi
 
   const handleSaveMarks = async () => {
     setSaving(true);
-    setSuccess(false);
     try {
       const payload = Object.entries(marks).map(([studentId, mark]) => ({
         exam_id: params.id,
@@ -83,10 +78,9 @@ export default function ExamMarksPage({ params: paramsPromise }: { params: Promi
         .upsert(payload, { onConflict: 'exam_id,student_id' });
 
       if (error) throw error;
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      showToast('Marks recorded successfully!');
     } catch (error: any) {
-      alert(error.message);
+      showToast(error.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -167,8 +161,8 @@ export default function ExamMarksPage({ params: paramsPromise }: { params: Promi
               className="btn-primary" 
               style={{ height: '4rem', fontSize: '1.1rem', boxShadow: '0 20px 40px -10px rgba(16, 185, 129, 0.4)' }}
             >
-              {saving ? <Loader2 className="animate-spin" size={24} /> : (success ? <CheckCircle2 size={24} /> : <Save size={24} />)}
-              {success ? 'Marks Recorded Successfully' : 'Save Examination Results'}
+              {saving ? <Loader2 className="animate-spin" size={24} /> : <Save size={24} />}
+              Save Examination Results
             </button>
           </div>
         </section>
