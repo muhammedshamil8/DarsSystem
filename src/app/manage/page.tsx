@@ -83,7 +83,7 @@ export default function ManagePage() {
         <div className="grid-responsive" style={{ marginBottom: '3rem' }}>
           <Link href="/manage/teachers" className="card glass" style={{ margin: 0, padding: '1.5rem', textAlign: 'center' }}>
             <Users size={32} color="var(--primary)" style={{ margin: '0 auto 0.75rem' }} />
-            <p style={{ fontWeight: 700, fontSize: '1.1rem' }}>Usthad & Staff</p>
+            <p style={{ fontWeight: 700, fontSize: '1.1rem' }}>Teachers</p>
           </Link>
           <Link href="/manage/students" className="card glass" style={{ margin: 0, padding: '1.5rem', textAlign: 'center' }}>
             <GraduationCap size={32} color="var(--primary)" style={{ margin: '0 auto 0.75rem' }} />
