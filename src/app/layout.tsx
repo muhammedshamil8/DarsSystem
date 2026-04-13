@@ -15,6 +15,7 @@ export const viewport: Viewport = {
 };
 
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { ToastProvider } from "@/components/ui/Toast";
 
 export default function RootLayout({
   children,
@@ -31,7 +32,9 @@ export default function RootLayout({
       </head>
       <body>
         <AuthProvider>
-          <main>{children}</main>
+          <ToastProvider>
+            <main>{children}</main>
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

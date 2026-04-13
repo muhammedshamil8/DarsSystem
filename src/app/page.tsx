@@ -9,6 +9,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { RoleGuard } from '@/components/auth/RoleGuard';
 import { supabase } from '@/lib/supabase';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import InstallBanner from '@/components/pwa/InstallBanner';
 
 export default function Dashboard() {
   const [hijriDate, setHijriDate] = useState('');
@@ -84,6 +85,7 @@ export default function Dashboard() {
   return (
     <RoleGuard>
       <div className="container animate-fade-in">
+        <InstallBanner />
         <header style={{ marginBottom: '2.5rem', marginTop: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
