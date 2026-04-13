@@ -7,11 +7,13 @@ import MobileNav from '@/components/layout/MobileNav';
 import { RoleGuard } from '@/components/auth/RoleGuard';
 import { supabase } from '@/lib/supabase';
 import Modal from '@/components/ui/Modal';
+import { useToast } from '@/components/ui/Toast';
 
 export default function ExamsManagePage() {
   const [exams, setExams] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
   
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -56,13 +58,18 @@ export default function ExamsManagePage() {
 
   const handleCreateExam = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.batch_subject_id) return alert('Select a class');
+    if (!formData.batch_subject_id) {
+      showToast('Please select a class', 'error');
+      return;
+    }
     setSubmitting(true);
     const { error } = await supabase.from('exams').insert(formData);
-    if (error) alert(error.message);
-    else {
+    if (error) {
+      showToast(error.message, 'error');
+    } else {
       setModalOpen(false);
       setFormData({ name: '', date: new Date().toISOString().split('T')[0], batch_subject_id: '' });
+      showToast('Examination scheduled successfully');
       fetchExams();
     }
     setSubmitting(false);
@@ -70,8 +77,13 @@ export default function ExamsManagePage() {
 
   const deleteExam = async (id: string) => {
     if (confirm('Are you sure? This will delete all marks for this exam.')) {
-      await supabase.from('exams').delete().eq('id', id);
-      fetchExams();
+      const { error } = await supabase.from('exams').delete().eq('id', id);
+      if (error) {
+        showToast(error.message, 'error');
+      } else {
+        showToast('Exam and associated results deleted');
+        fetchExams();
+      }
     }
   };
 
